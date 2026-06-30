@@ -63,5 +63,4 @@ shared sequence no matter how many people or sites use it.
 
 The counter increments under a lock, so requests are handled one at a time. If a
 connection drops mid-request, the page refuses to show a number rather than guess, so a
-blip can never cause a duplicate. The "Recent on this device" line is just a convenience,
-the counter is the source of truth.
+blip can never cause a duplicate. The counter is the single source of truth.

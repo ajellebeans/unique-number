@@ -69,8 +69,6 @@
   .secondary{margin-top:.8rem; width:100%; padding:.85rem; border:1px solid var(--line); border-radius:14px; background:var(--paper); color:var(--forest); font-size:.98rem; font-weight:600;}
   .secondary:hover{background:var(--tint);}
   .hidden{display:none !important;}
-  .recent{margin-top:1.7rem; font-size:.82rem; color:var(--ink-soft); min-height:1.1rem;}
-  .recent b{color:var(--ink); font-weight:600;}
 
   .toast{
     position:fixed; left:50%; bottom:2rem; transform:translateX(-50%) translateY(1rem);
@@ -105,7 +103,6 @@
       <button id="againBtn" class="secondary hidden">Get another number</button>
     </div>
 
-    <div id="recent" class="recent"></div>
     <div id="demoControls" class="demo hidden"><a id="demoToggle">demo: simulate a server error</a></div>
   </main>
 
@@ -122,13 +119,12 @@ const START    = 4000; // first number ever handed out (must match the counter)
 
 /* ----------------------------------------------------------------- */
 const DEMO = !ENDPOINT;
-const RECENT_KEY = DEMO ? "una_recent_demo" : "una_recent"; // keep demo + live history apart
 const $ = s => document.querySelector(s);
 const getBtn=$("#getBtn"), againBtn=$("#againBtn"),
       placeholder=$("#placeholder"), spinner=$("#spinner"),
       numberWrap=$("#numberWrap"), numberEl=$("#number"),
       reserved=$("#reserved"), hairline=$("#hairline"),
-      errorEl=$("#error"), recentEl=$("#recent"), toast=$("#toast");
+      errorEl=$("#error"), toast=$("#toast");
 
 if(DEMO){ $("#demobar").classList.remove("hidden"); $("#demoControls").classList.remove("hidden"); }
 
@@ -157,15 +153,6 @@ function showState(s){
 let toastTimer;
 function showToast(){toast.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove("show"),1600);}
 async function copy(t){try{await navigator.clipboard.writeText(t);showToast();}catch(e){/* clipboard can be blocked; not critical */}}
-function pushRecent(n){
-  let list=JSON.parse(localStorage.getItem(RECENT_KEY)||"[]");
-  list.unshift(n); list=list.slice(0,5);
-  localStorage.setItem(RECENT_KEY,JSON.stringify(list)); renderRecent();
-}
-function renderRecent(){
-  const list=JSON.parse(localStorage.getItem(RECENT_KEY)||"[]");
-  recentEl.innerHTML=list.length?"Recent on this device: <b>"+list.join("</b>, <b>")+"</b>":"";
-}
 async function handleGet(){
   getBtn.disabled=true; againBtn.disabled=true; getBtn.textContent="Getting your number...";
   showState("loading");
@@ -174,7 +161,7 @@ async function handleGet(){
     numberEl.textContent=n; showState("result");
     requestAnimationFrame(()=>{numberEl.classList.add("show"); hairline.classList.add("show"); reserved.classList.add("show");});
     getBtn.classList.add("hidden"); againBtn.classList.remove("hidden");
-    pushRecent(n); copy(String(n));
+    copy(String(n));
   }catch(e){
     showState("error"); getBtn.classList.remove("hidden"); againBtn.classList.add("hidden");
   }finally{
@@ -192,7 +179,6 @@ if(DEMO){
     $("#demoToggle").textContent=window.__forceError?"demo: error mode ON (tap to turn off)":"demo: simulate a server error";
   });
 }
-renderRecent();
 </script>
 </body>
 </html>

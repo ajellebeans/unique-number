@@ -124,6 +124,7 @@ const START    = 4000; // first number ever handed out (must match the counter)
 
 /* ----------------------------------------------------------------- */
 const DEMO = !ENDPOINT;
+const RECENT_KEY = DEMO ? "una_recent_demo" : "una_recent"; // keep demo + live history apart
 const $ = s => document.querySelector(s);
 const getBtn=$("#getBtn"), againBtn=$("#againBtn"),
       placeholder=$("#placeholder"), spinner=$("#spinner"),
@@ -159,12 +160,12 @@ let toastTimer;
 function showToast(){toast.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove("show"),1600);}
 async function copy(t){try{await navigator.clipboard.writeText(t);showToast();}catch(e){/* clipboard can be blocked; not critical */}}
 function pushRecent(n){
-  let list=JSON.parse(localStorage.getItem("una_recent")||"[]");
+  let list=JSON.parse(localStorage.getItem(RECENT_KEY)||"[]");
   list.unshift(n); list=list.slice(0,5);
-  localStorage.setItem("una_recent",JSON.stringify(list)); renderRecent();
+  localStorage.setItem(RECENT_KEY,JSON.stringify(list)); renderRecent();
 }
 function renderRecent(){
-  const list=JSON.parse(localStorage.getItem("una_recent")||"[]");
+  const list=JSON.parse(localStorage.getItem(RECENT_KEY)||"[]");
   recentEl.innerHTML=list.length?"Recent on this device: <b>"+list.join("</b>, <b>")+"</b>":"";
 }
 async function handleGet(){

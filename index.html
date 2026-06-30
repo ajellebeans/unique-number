@@ -35,8 +35,7 @@
   }
   .brand{font-size:.72rem; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--forest); margin-bottom:.35rem;}
   .brand span{color:var(--ink-soft); font-weight:600;}
-  h1{font-family:var(--display); font-weight:600; font-size:1.5rem; line-height:1.2; color:var(--forest); margin:.2rem 0 .4rem;}
-  .sub{color:var(--ink-soft); font-size:.96rem; margin:0 0 2rem;}
+  h1{font-family:var(--display); font-weight:600; font-size:1.5rem; line-height:1.2; color:var(--forest); margin:.2rem 0 1.6rem;}
 
   .stage{min-height:188px; display:flex; flex-direction:column; align-items:center; justify-content:center;}
   .number{
@@ -89,7 +88,6 @@
     <div id="demobar" class="demobar hidden">Demo mode: not connected to the live counter yet. These numbers are practice only.</div>
     <div class="brand">RDP <span>&middot; Centre of Teaching, Learning &amp; Scholarship</span></div>
     <h1>Get your number</h1>
-    <p class="sub">Tap the button for the next number. Every one is unique.</p>
 
     <div class="stage" aria-live="polite">
       <div id="placeholder" class="placeholder">Your number will appear here.</div>
@@ -97,7 +95,7 @@
       <div id="numberWrap" class="hidden">
         <div id="number" class="number"></div>
         <div class="hairline" id="hairline"></div>
-        <div id="reserved" class="reserved">This number is <b>yours</b>. No one else can get it.</div>
+        <div id="reserved" class="reserved">This number is <b>yours</b>.</div>
       </div>
       <div id="error" class="error hidden"><b>Couldn't reach the server.</b>No number was given out, so nothing is lost. Please try again.</div>
     </div>

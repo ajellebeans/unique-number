@@ -1,16 +1,16 @@
-# Faculty number tool
+# unique-number
 
 A tiny web page that hands out a **unique number that is never repeated**, starting at
-**4000**. Built for two teachers who each need to pull numbers from one shared sequence,
-on their own devices, with no login.
+**4000**. Anyone who opens it and taps the button gets the next number in one shared
+sequence, on any device, with no login.
 
-- **The page** (`index.html`) is a single static file. It is served by GitHub Pages.
-- **The counter** is one small online service both teachers call. It holds "the next
-  number" and increments it atomically, so the same number can never go out twice.
+- **The page** (`index.html`) is a single static file, served by GitHub Pages.
+- **The counter** is one small online service the page calls. It holds "the next number"
+  and increments it atomically, so the same number can never go out twice.
 
-The page and the counter are separate because GitHub Pages can only serve static files,
-it cannot remember a number between visitors. The counter's source still lives here in
-this repo, so GitHub stays the home of record for all the code.
+The page and the counter are separate because GitHub Pages only serves static files, it
+cannot remember a number between visitors. The counter's source still lives here, so
+GitHub stays the home of record for all the code.
 
 ```
 index.html                     the page (this is what GitHub Pages serves)
@@ -18,69 +18,50 @@ counter/apps-script/Code.gs    the counter  (main option: Google Apps Script)
 counter/cloudflare/worker.js   the counter  (backup option: Cloudflare Worker)
 ```
 
----
-
-## How it fits together
-
-```
-Teacher A's browser  \
-                      >--->  one shared counter  --->  4000, 4001, 4002, ...
-Teacher B's browser  /        (Apps Script)
-```
-
-Both copies of the page (yours and the CTLS one) point at the **same** counter URL, which
-is what makes it one shared sequence across both teachers and both sites.
+Every copy of the page points at the **same** counter URL, which is what makes it one
+shared sequence no matter how many people or sites use it.
 
 ---
 
-## Setup, in order
+## Setup
 
-### 1. Put the code on your GitHub
+### 1. Publish the page (GitHub Pages)
 
-1. Create a new repository on your GitHub account (for example `unique-number`).
-2. Upload the contents of this `repo/` folder to it.
-3. Repo **Settings -> Pages -> Build and deployment -> Source: Deploy from a branch**,
-   branch `main`, folder `/ (root)`. Save.
-4. After a minute your page is live at `https://<your-username>.github.io/unique-number/`.
-   It will show a yellow **"Demo mode"** banner until step 2 is done. That is expected and safe.
+1. Put these files in a GitHub repo.
+2. **Settings -> Pages -> Source: Deploy from a branch**, branch `main`, folder `/ (root)`.
+3. The page goes live at `https://<owner>.github.io/<repo>/`. Until the counter URL is
+   filled in (step 2) it shows a yellow **"Demo mode"** banner and uses practice numbers,
+   which is expected and safe.
 
 ### 2. Deploy the counter (Google Apps Script)
 
-1. Go to [script.google.com](https://script.google.com) -> **New project**.
-2. Delete the sample code and paste in `counter/apps-script/Code.gs`.
-3. **Deploy -> New deployment -> Web app**:
-   - Execute as: **Me**
-   - Who has access: **Anyone**
-4. Copy the **web app URL** it gives you (ends in `/exec`).
-5. In `index.html`, paste that URL between the quotes here:
+1. [script.google.com](https://script.google.com) -> **New project**, paste in
+   `counter/apps-script/Code.gs`.
+2. **Deploy -> New deployment -> Web app**: Execute as **Me**, Who has access **Anyone**.
+3. Copy the web app URL (ends in `/exec`) and paste it into `index.html`:
    ```js
    const ENDPOINT = "https://script.google.com/macros/s/AKfy.../exec";
    ```
-6. Commit that change. The "Demo mode" banner disappears and the tool is live and shared.
+4. Commit. The banner disappears and the tool is live.
 
-> Tip: visit the `/exec` URL in a browser to see the current status. It is safe, a plain
-> visit does **not** use up a number (only the page's button does).
-
-### 3. Stand up the page on the CTLS org GitHub
-
-Once it works on your account, repeat step 1 under the **CTLS organisation** (same files,
-same `ENDPOINT` URL so both sites share the one counter). Done.
+> Visiting the `/exec` URL in a browser shows the current status and does **not** use up a
+> number, only the page's button does.
 
 ---
 
 ## Changing things
 
-- **Different starting number:** change `START` in `index.html` *and* `START_AT` in the
-  counter, before anyone uses it. To reset later, run `resetCounterTo()` in the Apps
-  Script editor.
-- **Wording / colours:** all in `index.html`. The palette is the RDP softened brand
+- **Different starting number:** change `START` in `index.html` and `START_AT` in the
+  counter, before anyone uses it. To reset later, run `resetCounterTo()` in the Apps Script
+  editor.
+- **Wording / colours:** all in `index.html`. Palette is the RDP softened brand
   (forest `#004238`, lime `#AADB1E`).
-- **If Apps Script ever gives trouble** (rare cross-origin issue): switch to the Cloudflare
-  Worker in `counter/cloudflare/` and point `ENDPOINT` at it instead. Nothing else changes.
+- **Backup counter:** if Apps Script ever misbehaves, deploy the Cloudflare Worker in
+  `counter/cloudflare/` and point `ENDPOINT` at it instead. Nothing else changes.
 
 ## Why it never repeats
 
-The counter increments under a lock, so requests are handled one at a time. If a teacher's
-internet drops mid-request, the page refuses to show a number rather than guessing, so a
-network blip can never cause a duplicate. The "Recent on this device" line on the page is
-just a convenience and is not the source of truth, the counter is.
+The counter increments under a lock, so requests are handled one at a time. If a
+connection drops mid-request, the page refuses to show a number rather than guess, so a
+blip can never cause a duplicate. The "Recent on this device" line is just a convenience,
+the counter is the source of truth.

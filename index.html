@@ -14,6 +14,7 @@
     --ink:#243029; --ink-soft:#5b6770; --paper:#ffffff;
     --paper-warm:#FAFAF7; --tint:#EEF3F1; --line:#E4E9E7;
     --amber:#9a6b00; --amber-bg:#fff4d6;
+    --violet:#685BC7; --eggplant:#51284F;
     --sans:"Inter",-apple-system,"Segoe UI",Roboto,system-ui,sans-serif;
     --display:"Space Grotesk",var(--sans);
   }
@@ -50,36 +51,33 @@
   .hairline.show{opacity:1;}
 
   /* hold-to-copy ring */
-  .holdctl{display:flex; flex-direction:column; align-items:center; gap:.6rem;}
-  .ring{
-    width:88px; height:88px; border-radius:50%; padding:0; border:0; cursor:pointer;
-    -webkit-user-select:none; user-select:none; touch-action:none; -webkit-tap-highlight-color:transparent; -webkit-touch-callout:none;
-    display:grid; place-items:center;
-    background:
-      radial-gradient(closest-side, var(--paper) 78%, transparent 79% 100%),
-      conic-gradient(var(--green) calc(var(--p,0) * 360deg), var(--tint) 0);
-    box-shadow:0 10px 24px -14px rgba(0,66,56,.45);
+  /* wide hold-to-take button; a colour fill sweeps across as you hold */
+  .holdbar{
+    position:relative; overflow:hidden; width:100%; padding:1.15rem 1.4rem;
+    border:0; border-radius:16px; cursor:pointer;
+    background:var(--violet); color:#fff;
+    font-size:1.08rem; font-weight:600; letter-spacing:.01em; text-align:center;
+    box-shadow:0 10px 24px -12px rgba(64,45,120,.55);
+    -webkit-user-select:none; user-select:none; touch-action:none;
+    -webkit-tap-highlight-color:transparent; -webkit-touch-callout:none;
     transition:transform .12s ease;
     animation:breathe 2.6s ease-in-out infinite;
   }
   /* gentle idle "breathing" halo to invite the hold; pauses while held/done */
   @keyframes breathe{
-    0%,100%{box-shadow:0 10px 24px -14px rgba(0,66,56,.45), 0 0 0 0 rgba(0,173,80,0);}
-    50%{box-shadow:0 10px 26px -12px rgba(0,66,56,.45), 0 0 0 9px rgba(0,173,80,.10);}
+    0%,100%{box-shadow:0 10px 24px -12px rgba(64,45,120,.55), 0 0 0 0 rgba(104,91,199,0);}
+    50%{box-shadow:0 10px 26px -10px rgba(64,45,120,.55), 0 0 0 6px rgba(104,91,199,.18);}
   }
-  .ring:active{transform:translateY(1px);}
-  .ring.done{transform:none;}
-  .ring.done,.ring.held{animation:none;}
-  .ring .glyph{
-    width:56px; height:56px; border-radius:50%; background:var(--forest); color:#fff;
-    display:grid; place-items:center; font-size:1.4rem; line-height:1;
-    transition:background .2s ease, transform .2s ease;
+  .holdbar:active{transform:translateY(1px);}
+  .holdbar.held,.holdbar.done{animation:none;}
+  .holdbar:focus-visible{outline:3px solid var(--green); outline-offset:3px;}
+  .holdbar .fill{
+    position:absolute; left:0; top:0; bottom:0; width:100%;
+    transform-origin:left; transform:scaleX(var(--p,0));
+    background:linear-gradient(90deg, #3D1C3C, var(--eggplant));
   }
-  .ring.done .glyph{background:var(--green); transform:scale(1.05);}
-  .ring:focus-visible{outline:3px solid var(--green); outline-offset:3px;}
-  .copylabel{font-size:.9rem; font-weight:600; color:var(--ink-soft); transition:color .2s;}
-  .copylabel.nudge{color:var(--amber);}
-  .copylabel.done{color:var(--green);}
+  .holdbar .lbl{position:relative; z-index:1; transition:opacity .2s;}
+  .holdbar .lbl.nudge{opacity:.85;}
   .copybtn{
     margin-top:1.1rem; display:inline-flex; align-items:center; gap:.5rem;
     padding:.7rem 1.3rem; border:1px solid var(--line); border-radius:999px;
@@ -94,7 +92,7 @@
   /* respect users who ask for less motion: drop the pulse and the number's
      slide/scale (keep the ring fill, which is essential progress feedback) */
   @media (prefers-reduced-motion: reduce){
-    .ring{animation:none;}
+    .holdbar{animation:none;}
     .number, .number.show{transition:opacity .2s ease; transform:none;}
     .spinner{animation-duration:1.4s;}
   }
@@ -142,12 +140,10 @@
     </div>
 
     <div class="actions">
-      <div class="holdctl">
-        <button id="holdBtn" class="ring" aria-label="Press and hold for half a second to take a number and copy it to your clipboard">
-          <span class="glyph" id="holdGlyph">&#35;</span>
-        </button>
-        <div class="copylabel" id="holdLabel">Hold to take a number</div>
-      </div>
+      <button id="holdBtn" class="holdbar" aria-label="Press and hold for half a second to take a number">
+        <span class="fill"></span>
+        <span class="lbl" id="holdLabel">Hold to take a number</span>
+      </button>
     </div>
 
     <div id="demoControls" class="demo hidden"><a id="demoToggle">demo: simulate a server error</a></div>
@@ -168,7 +164,7 @@ const $ = s => document.querySelector(s);
 const placeholder=$("#placeholder"), spinner=$("#spinner"),
       numberWrap=$("#numberWrap"), numberEl=$("#number"),
       hairline=$("#hairline"), errorEl=$("#error"),
-      holdBtn=$("#holdBtn"), holdGlyph=$("#holdGlyph"), holdLabel=$("#holdLabel"),
+      holdBtn=$("#holdBtn"), holdLabel=$("#holdLabel"),
       copyBtn=$("#copyBtn"), copyBtnGlyph=$("#copyBtnGlyph"), copyBtnText=$("#copyBtnText");
 
 if(DEMO){ $("#demobar").classList.remove("hidden"); $("#demoControls").classList.remove("hidden"); }
@@ -225,7 +221,7 @@ function idleLabel(){
 }
 function armIdle(){
   busy=false; setP(0);
-  holdBtn.classList.remove("done","held"); holdGlyph.innerHTML="&#35;";
+  holdBtn.classList.remove("done","held");
 }
 function frame(now){
   if(!holdStart) holdStart=now;
@@ -269,7 +265,6 @@ async function complete(){
     showState("result");
     requestAnimationFrame(()=>{numberEl.classList.add("show"); hairline.classList.add("show");});
     hasNumber=true;
-    holdGlyph.innerHTML="&#10003;";
     holdLabel.textContent="Your number is ready"; holdLabel.classList.add("done");
     // Convenience auto-copy for browsers that allow it (Chrome). If it fails
     // (Safari/iOS), the "Copy number" button is the reliable fallback.

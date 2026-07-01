@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Get your number</title>
+<title>Take a number</title>
 <meta name="description" content="A simple tool that hands out a unique number that is never repeated.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -50,6 +50,31 @@
   .reserved b{color:var(--forest);}
   .hairline{height:3px;width:48px;background:var(--lime);border-radius:2px;margin:1.1rem auto 0;opacity:0;transition:opacity .3s ease;}
   .hairline.show{opacity:1;}
+
+  /* hold-to-copy ring */
+  .holdctl{display:flex; flex-direction:column; align-items:center; gap:.6rem;}
+  .ring{
+    width:88px; height:88px; border-radius:50%; padding:0; border:0; cursor:pointer;
+    -webkit-user-select:none; user-select:none; touch-action:none; -webkit-tap-highlight-color:transparent;
+    display:grid; place-items:center;
+    background:
+      radial-gradient(closest-side, var(--paper) 78%, transparent 79% 100%),
+      conic-gradient(var(--green) calc(var(--p,0) * 360deg), var(--tint) 0);
+    box-shadow:0 10px 24px -14px rgba(0,66,56,.45);
+    transition:transform .12s ease;
+  }
+  .ring:active{transform:translateY(1px);}
+  .ring.done{transform:none;}
+  .ring .glyph{
+    width:56px; height:56px; border-radius:50%; background:var(--forest); color:#fff;
+    display:grid; place-items:center; font-size:1.4rem; line-height:1;
+    transition:background .2s ease, transform .2s ease;
+  }
+  .ring.done .glyph{background:var(--green); transform:scale(1.05);}
+  .ring:focus-visible{outline:3px solid var(--green); outline-offset:3px;}
+  .copylabel{font-size:.9rem; font-weight:600; color:var(--ink-soft); transition:color .2s;}
+  .copylabel.nudge{color:var(--amber);}
+  .copylabel.done{color:var(--green);}
   .placeholder{color:var(--ink-soft); font-size:1rem;}
   .spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--tint);border-top-color:var(--green);animation:spin .8s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
@@ -85,7 +110,7 @@
   <main class="card">
     <div id="demobar" class="demobar hidden">Demo mode: not connected to the live counter yet. These numbers are practice only.</div>
     <div class="brand">RDP <span>&middot; Centre of Teaching, Learning &amp; Scholarship</span></div>
-    <h1>Get your number</h1>
+    <h1>Take a number</h1>
 
     <div class="stage" aria-live="polite">
       <div id="placeholder" class="placeholder">Your number will appear here.</div>
@@ -93,14 +118,18 @@
       <div id="numberWrap" class="hidden">
         <div id="number" class="number"></div>
         <div class="hairline" id="hairline"></div>
-        <div id="reserved" class="reserved">This number is <b>yours</b>.</div>
+        <div id="reserved" class="reserved">This number is <b>yours</b>. Copied to your clipboard.</div>
       </div>
       <div id="error" class="error hidden"><b>Couldn't reach the server.</b>No number was given out, so nothing is lost. Please try again.</div>
     </div>
 
     <div class="actions">
-      <button id="getBtn" class="primary">Get my number</button>
-      <button id="againBtn" class="secondary hidden">Get another number</button>
+      <div class="holdctl">
+        <button id="holdBtn" class="ring" aria-label="Press and hold for half a second to take a number and copy it to your clipboard">
+          <span class="glyph" id="holdGlyph">&#35;</span>
+        </button>
+        <div class="copylabel" id="holdLabel">Hold to take a number</div>
+      </div>
     </div>
 
     <div id="demoControls" class="demo hidden"><a id="demoToggle">demo: simulate a server error</a></div>
@@ -120,11 +149,11 @@ const START    = 4000; // first number ever handed out (must match the counter)
 /* ----------------------------------------------------------------- */
 const DEMO = !ENDPOINT;
 const $ = s => document.querySelector(s);
-const getBtn=$("#getBtn"), againBtn=$("#againBtn"),
-      placeholder=$("#placeholder"), spinner=$("#spinner"),
+const placeholder=$("#placeholder"), spinner=$("#spinner"),
       numberWrap=$("#numberWrap"), numberEl=$("#number"),
       reserved=$("#reserved"), hairline=$("#hairline"),
-      errorEl=$("#error"), toast=$("#toast");
+      errorEl=$("#error"), toast=$("#toast"),
+      holdBtn=$("#holdBtn"), holdGlyph=$("#holdGlyph"), holdLabel=$("#holdLabel");
 
 if(DEMO){ $("#demobar").classList.remove("hidden"); $("#demoControls").classList.remove("hidden"); }
 
@@ -152,27 +181,78 @@ function showState(s){
 }
 let toastTimer;
 function showToast(){toast.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove("show"),1600);}
-async function copy(t){try{await navigator.clipboard.writeText(t);showToast();}catch(e){/* clipboard can be blocked; not critical */}}
-async function handleGet(){
-  getBtn.disabled=true; againBtn.disabled=true; getBtn.textContent="Getting your number...";
+async function copy(t){try{await navigator.clipboard.writeText(t);showToast();return true;}catch(e){/* clipboard can be blocked; not critical */return false;}}
+
+/* ---- hold-to-get: ONE gesture allocates the number AND copies it.
+   The number is only fetched when the hold COMPLETES, so releasing early
+   burns nothing from the counter. Hold length = HOLD_MS. ---- */
+const HOLD_MS=500;
+let currentNumber="", holdRaf=null, holdStart=0, busy=false, hasNumber=false;
+function setP(p){holdBtn.style.setProperty("--p",p);}
+function idleLabel(){
+  holdLabel.textContent = hasNumber ? "Hold to take another number" : "Hold to take a number";
+  holdLabel.classList.remove("nudge","done");
+}
+function armIdle(){
+  busy=false; setP(0);
+  holdBtn.classList.remove("done"); holdGlyph.innerHTML="&#35;";
+}
+function frame(now){
+  if(!holdStart) holdStart=now;
+  const p=Math.min((now-holdStart)/HOLD_MS,1);
+  setP(p);
+  if(p>=1){complete();return;}
+  holdRaf=requestAnimationFrame(frame);
+}
+function begin(e){
+  if(busy) return;
+  if(e&&e.preventDefault) e.preventDefault();
+  holdStart=0; cancelAnimationFrame(holdRaf);
+  holdLabel.textContent="Keep holding…"; holdLabel.classList.remove("nudge","done");
+  holdRaf=requestAnimationFrame(frame);
+}
+function cancel(){
+  if(busy) return;
+  cancelAnimationFrame(holdRaf);
+  const reached=parseFloat(getComputedStyle(holdBtn).getPropertyValue("--p"))||0;
+  setP(0);
+  if(reached>0.05&&reached<1){holdLabel.textContent="Hold a little longer"; holdLabel.classList.add("nudge");}
+  else{ idleLabel(); }
+}
+async function complete(){
+  busy=true; setP(1); cancelAnimationFrame(holdRaf);
+  holdBtn.classList.add("done");
+  holdLabel.textContent="Getting your number…"; holdLabel.classList.remove("nudge","done");
+  numberEl.classList.remove("show"); hairline.classList.remove("show"); reserved.classList.remove("show");
   showState("loading");
   try{
     const n=await getNext();
-    numberEl.textContent=n; showState("result");
+    currentNumber=String(n);
+    numberEl.textContent=n;
+    reserved.innerHTML="Number <b>"+n+"</b> is yours. Copied to your clipboard.";
+    showState("result");
     requestAnimationFrame(()=>{numberEl.classList.add("show"); hairline.classList.add("show"); reserved.classList.add("show");});
-    getBtn.classList.add("hidden"); againBtn.classList.remove("hidden");
-    copy(String(n));
+    const ok=await copy(currentNumber);
+    if(!ok) reserved.innerHTML="Number <b>"+n+"</b> is yours.";
+    hasNumber=true;
+    holdGlyph.innerHTML="&#10003;";
+    holdLabel.textContent = ok ? "Your number ✓" : "Your number is ready";
+    holdLabel.classList.add("done");
+    setTimeout(()=>{armIdle(); idleLabel();}, 2200);
   }catch(e){
-    showState("error"); getBtn.classList.remove("hidden"); againBtn.classList.add("hidden");
-  }finally{
-    getBtn.disabled=false; againBtn.disabled=false; getBtn.textContent="Get my number";
+    showState("error");
+    armIdle();
+    holdLabel.textContent="Couldn’t reach the server. Hold to try again.";
+    holdLabel.classList.remove("done");
   }
 }
-getBtn.addEventListener("click",handleGet);
-againBtn.addEventListener("click",()=>{
-  numberEl.classList.remove("show"); hairline.classList.remove("show"); reserved.classList.remove("show");
-  handleGet();
-});
+holdBtn.addEventListener("pointerdown",begin);
+holdBtn.addEventListener("pointerup",cancel);
+holdBtn.addEventListener("pointerleave",cancel);
+holdBtn.addEventListener("pointercancel",cancel);
+holdBtn.addEventListener("contextmenu",e=>e.preventDefault());
+holdBtn.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&!e.repeat){e.preventDefault();begin(e);}});
+holdBtn.addEventListener("keyup",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();cancel();}});
 if(DEMO){
   $("#demoToggle").addEventListener("click",()=>{
     window.__forceError=!window.__forceError;

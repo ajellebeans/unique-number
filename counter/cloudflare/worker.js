@@ -23,6 +23,9 @@
  */
 
 const START_AT = 4000;
+// Per-IP soft cap per day. Set well above any legitimate use (a person claims a
+// handful of numbers) so it only bites scripted abuse of this public endpoint.
+const RL_MAX_PER_DAY = 200;
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -51,6 +54,23 @@ export class Counter {
       const next = (await this.state.storage.get("next")) ?? START_AT;
       return json({ status: "ok", next_number: next, hint: "POST to claim a number" });
     }
+    // Fail-open per-IP daily rate limit: deters scripted abuse of this public,
+    // unauthenticated endpoint. It must NEVER block a real claim on error, so the
+    // whole check is wrapped in try/catch and the atomic increment stays the
+    // critical path below.
+    try {
+      const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+      const day = new Date().toISOString().slice(0, 10);
+      const key = `rl:${ip}:${day}`;
+      const used = (await this.state.storage.get(key)) ?? 0;
+      if (used >= RL_MAX_PER_DAY) {
+        return json({ error: "rate_limited", hint: "Too many requests today; try again tomorrow." }, 429);
+      }
+      await this.state.storage.put(key, used + 1);
+    } catch (e) {
+      // fail open: a rate-limit hiccup must not stop a legitimate number claim
+    }
+
     // POST: atomically claim the next number. blockConcurrencyWhile serializes.
     let issued;
     await this.state.blockConcurrencyWhile(async () => {
@@ -62,8 +82,9 @@ export class Counter {
   }
 }
 
-function json(obj) {
+function json(obj, status) {
   return new Response(JSON.stringify(obj), {
+    status: status || 200,
     headers: { "Content-Type": "application/json", ...CORS },
   });
 }

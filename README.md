@@ -59,6 +59,23 @@ shared sequence no matter how many people or sites use it.
 - **Backup counter:** if Apps Script ever misbehaves, deploy the Cloudflare Worker in
   `counter/cloudflare/` and point `ENDPOINT` at it instead. Nothing else changes.
 
+## Security notes
+
+The counter is public and unauthenticated by design (the page has no login), so anyone who
+finds the endpoint URL can POST to claim or inflate numbers. Two things keep the impact low:
+uniqueness can never break (the atomic increment keeps numbers monotonic, so abuse can only
+skip the sequence forward), and an inflated counter is fully recoverable with `resetCounterTo()`.
+
+- **Cloudflare Worker** (`counter/cloudflare/worker.js`): includes a fail-open per-IP daily
+  soft cap (`RL_MAX_PER_DAY`, default 200) that deters scripted abuse without ever blocking a
+  real claim. For stronger protection add a Cloudflare rate-limiting rule or Turnstile in the
+  dashboard (no code change).
+- **Google Apps Script** (`Code.gs`): cannot see the client IP, so it has no practical per-IP
+  rate limit. If abuse of the public endpoint becomes a concern, prefer the Cloudflare Worker
+  (which can rate-limit) or front the tool with Turnstile.
+- A shared secret baked into the public page is **not** real protection (it is visible in page
+  source), so it is not used.
+
 ## Why it never repeats
 
 The counter increments under a lock, so requests are handled one at a time. If a

@@ -17,6 +17,11 @@
  * "New version" for it to take effect.
  */
 
+// SECURITY: this web app is public + unauthenticated by design. Apps Script does
+// not expose the client IP, so there is no practical per-IP rate limit here. Abuse
+// can only inflate the counter (recoverable via resetCounterTo); uniqueness never
+// breaks. For a rate-limited public endpoint, prefer the Cloudflare Worker version
+// or put Cloudflare Turnstile in front. See README "Security notes".
 var START_AT = 4000;          // first number ever handed out
 var KEY      = 'next_number'; // stored in Script Properties
 
